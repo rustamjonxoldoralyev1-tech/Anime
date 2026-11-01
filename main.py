@@ -933,4 +933,595 @@ def admin_add_bulk(message):
     if not anime:
         bot.reply_to(
             message,
-          
+            f"❌ {anime_code} kodli anime topilmadi!"
+        )
+        return
+
+    # Bulk rejimini boshlash
+    bulk_sessions[message.from_user.id] = {
+        "anime_code": anime_code,
+        "episode": 1
+    }
+
+    bot.reply_to(
+        message,
+        f"✅ Bulk qo'shish boshlandi!\n\n"
+        f"🎬 Anime: {anime[1]}\n"
+        f"🎞 Jami qism: {anime[2]}\n\n"
+        f"📥 Endi videolarni ketma-ket yuboring.\n"
+        f"1-video → 1-qism\n"
+        f"2-video → 2-qism\n"
+        f"3-video → 3-qism\n\n"
+        f"🛑 Tugatish uchun /stopbulk yozing.\n\n"
+        f"📢 Videolar kanalga yuborilmaydi!"
+    )
+
+
+@bot.message_handler(commands=["stopbulk"])
+def admin_stop_bulk(message):
+
+    if message.from_user.id != ADMIN_ID:
+        return
+
+    if message.from_user.id not in bulk_sessions:
+        bot.reply_to(
+            message,
+            "⚠️ Hozir bulk qo'shish rejimi yoqilmagan."
+        )
+        return
+
+    session = bulk_sessions.pop(message.from_user.id)
+
+    next_episode = session["episode"]
+
+    bot.reply_to(
+        message,
+        f"✅ Bulk qo'shish tugatildi!\n\n"
+        f"📌 Kod: {session['anime_code']}\n"
+        f"🎞 Qo'shilgan qismlar: {next_episode - 1}"
+    )
+
+
+@bot.message_handler(content_types=["video"])
+def admin_bulk_video(message):
+
+    if message.from_user.id != ADMIN_ID:
+        return
+
+    # Bulk rejimi yoqilmagan bo'lsa, hech narsa qilmaydi
+    if message.from_user.id not in bulk_sessions:
+        return
+
+    session = bulk_sessions[message.from_user.id]
+
+    anime_code = session["anime_code"]
+    ep_num = session["episode"]
+
+    video_id = message.video.file_id
+
+    try:
+
+        conn = get_db()
+        cursor = conn.cursor()
+
+        cursor.execute(
+            """
+            INSERT INTO episodes
+            (
+                anime_code,
+                episode_number,
+                video_id
+            )
+            VALUES (%s, %s, %s)
+
+            ON CONFLICT
+            (
+                anime_code,
+                episode_number
+            )
+
+            DO UPDATE SET
+                video_id = EXCLUDED.video_id
+            """,
+            (
+                anime_code,
+                ep_num,
+                video_id
+            )
+        )
+
+        conn.commit()
+
+        cursor.close()
+        conn.close()
+
+        # Keyingi qism raqami
+        session["episode"] += 1
+
+        bot.reply_to(
+            message,
+            f"✅ {ep_num}-qism saqlandi!\n\n"
+            f"📌 Kod: {anime_code}\n"
+            f"➡️ Keyingi video → {ep_num + 1}-qism\n\n"
+            f"📢 Kanalga yuborilmadi."
+        )
+
+    except Exception as e:
+
+        bot.reply_to(
+            message,
+            f"❌ {ep_num}-qismni saqlashda xatolik:\n\n"
+            f"{e}"
+        )
+    
+# ----------------- EPIZODNI O'CHIRISH -----------------
+
+@bot.message_handler(commands=["deleteanime"])
+def admin_delete_episode(message):
+
+    if message.from_user.id != ADMIN_ID:
+        return
+
+    try:
+
+        args = message.text.split()
+
+        if len(args) < 3:
+
+            bot.reply_to(
+                message,
+                "⚠️ Format:\n"
+                "/deleteanime KOD QISM\n\n"
+                "Masalan:\n"
+                "/deleteanime 2 5"
+            )
+
+            return
+
+        anime_code = args[1]
+        ep_num = int(args[2])
+
+        conn = get_db()
+        cursor = conn.cursor()
+
+        # Avval shu qism mavjudligini tekshirish
+
+        cursor.execute(
+            """
+            SELECT id
+            FROM episodes
+            WHERE anime_code = %s
+            AND episode_number = %s
+            """,
+            (
+                anime_code,
+                ep_num
+            )
+        )
+
+        episode = cursor.fetchone()
+
+        if not episode:
+
+            cursor.close()
+            conn.close()
+
+            bot.reply_to(
+                message,
+                f"❌ {anime_code}-kodli animening "
+                f"{ep_num}-qismi bazada topilmadi!"
+            )
+
+            return
+
+        # Qismni o'chirish
+
+        cursor.execute(
+            """
+            DELETE FROM episodes
+            WHERE anime_code = %s
+            AND episode_number = %s
+            """,
+            (
+                anime_code,
+                ep_num
+            )
+        )
+
+        conn.commit()
+
+        cursor.close()
+        conn.close()
+
+        bot.reply_to(
+            message,
+            f"✅ {anime_code}-kodli animening "
+            f"{ep_num}-qismi muvaffaqiyatli o'chirildi!"
+        )
+
+    except ValueError:
+
+        bot.reply_to(
+            message,
+            "❌ Qism raqami raqam bo'lishi kerak!\n\n"
+            "Masalan:\n"
+            "/deleteanime 2 5"
+        )
+
+    except Exception as e:
+
+        bot.reply_to(
+            message,
+            f"❌ Qismni o'chirishda xatolik yuz berdi:\n\n"
+            f"{e}"
+        )
+
+# ----------------- YANGI ANIME QO'SHISH -----------------
+
+@bot.message_handler(content_types=["photo"])
+def add_anime_to_database(message):
+
+    if message.from_user.id != ADMIN_ID:
+        return
+
+    if (
+        not message.caption
+        or not message.caption.startswith(
+            "/addanime_db"
+        )
+    ):
+        return
+
+    try:
+
+        data = message.caption.replace(
+            "/addanime_db",
+            "",
+            1
+        ).strip()
+
+        parts = [
+            x.strip()
+            for x in data.split("|")
+        ]
+
+        # Yangi format:
+        # KOD | NOMI | QISMLAR SONI | TILI | YILI | JANRI | KANAL LINKI | TA'RIF
+
+        if len(parts) < 8:
+
+            bot.reply_to(
+                message,
+                "❌ Format xato!\n\n"
+                "To'g'ri format:\n\n"
+                "/addanime_db KOD | NOMI | QISMLAR SONI | TILI | YILI | JANRI | KANAL LINKI | TA'RIF"
+            )
+
+            return
+
+        code = parts[0]
+        title = parts[1]
+
+        episodes_count = int(
+            parts[2]
+        )
+
+        language = parts[3]
+        year = parts[4]
+        genre = parts[5]
+        channel_link = parts[6]
+
+        description = "|".join(
+            parts[7:]
+        )
+
+        # Davlati va ko'rishlar soni endi ishlatilmaydi
+        country = ""
+        views = ""
+
+        photo_id = (
+            message.photo[-1].file_id
+        )
+
+        conn = get_db()
+        cursor = conn.cursor()
+
+        # Kod mavjudligini tekshirish
+
+        cursor.execute(
+            """
+            SELECT code
+            FROM animes
+            WHERE code = %s
+            """,
+            (code,)
+        )
+
+        if cursor.fetchone():
+
+            cursor.close()
+            conn.close()
+
+            bot.reply_to(
+                message,
+                f"⚠️ {code} kodi bilan anime "
+                f"allaqachon bazada mavjud!"
+            )
+
+            return
+
+        # Anime qo'shish
+
+        cursor.execute(
+            """
+            INSERT INTO animes
+            (
+                code,
+                title,
+                photo,
+                episodes_count,
+                country,
+                language,
+                year,
+                genre,
+                views,
+                channel_link
+            )
+            VALUES
+            (
+                %s,
+                %s,
+                %s,
+                %s,
+                %s,
+                %s,
+                %s,
+                %s,
+                %s,
+                %s
+            )
+            """,
+            (
+                code,
+                title,
+                photo_id,
+                episodes_count,
+                country,
+                language,
+                year,
+                genre,
+                views,
+                channel_link
+            )
+        )
+
+        conn.commit()
+
+        cursor.close()
+        conn.close()
+
+        bot.reply_to(
+            message,
+            f"✅ Anime bazaga muvaffaqiyatli qo'shildi!\n\n"
+            f"🔑 Kod: {code}\n"
+            f"🎬 Nomi: {title}\n"
+            f"🎞 Qismlar: {episodes_count}\n"
+            f"🎞 Tili: {language}\n"
+            f"📅 Yili: {year}\n"
+            f"🎭 Janri: {genre}\n"
+            f"📢 Kanal: {channel_link}\n\n"
+            f"📝 Ta'rif qabul qilindi."
+        )
+
+    except ValueError:
+
+        bot.reply_to(
+            message,
+            "❌ Xatolik: Qismlar soni raqam "
+            "bo'lishi kerak!\n\n"
+            "Masalan: 12"
+        )
+
+    except Exception as e:
+
+        bot.reply_to(
+            message,
+            f"❌ Anime qo'shishda xatolik yuz berdi:\n\n"
+            f"{e}"
+        )
+
+
+# ----------------- QIDIRUV -----------------
+
+@bot.message_handler(
+    func=lambda message: True
+)
+def handle_messages(message):
+
+    user_id = message.from_user.id
+
+    if not check_sub(user_id):
+
+        bot.send_message(
+            user_id,
+            "🛑 Kanalga a'zolikdan chiqib ketgansiz! "
+            "Qayta start bosing: /start"
+        )
+
+        return
+
+    if message.text == "🔍 Anime qidirish":
+
+        bot.send_message(
+            user_id,
+            "Anime kodini kiriting (Masalan: 1):"
+        )
+
+        return
+
+    code = message.text.strip()
+
+    conn = get_db()
+    cursor = conn.cursor()
+
+    cursor.execute(
+        """
+        SELECT *
+        FROM animes
+        WHERE code = %s
+        """,
+        (code,)
+    )
+
+    anime = cursor.fetchone()
+
+    cursor.close()
+    conn.close()
+
+    if anime:
+
+        # Bazaga yuklangan qismlar sonini olish
+        uploaded_episodes = get_uploaded_episodes_count(code)
+
+        caption = (
+            f"🎬 **Nomi:** {anime[1]}\n\n"
+            f"🥷 **Qismi:** {uploaded_episodes}/{anime[3]}\n"
+            f"🌍 **Davlati:** {anime[4]}\n"
+            f"🎞 **Tili:** {anime[5]}\n"
+            f"📅 **Yili:** {anime[6]}\n"
+            f"🎭 **Janri:** {anime[7]}\n\n"
+            f"🔍 **Qidirishlar soni:** {anime[8]}\n\n"
+            f"🍿 {anime[9]}"
+        )
+
+        markup = get_episodes_grid(
+            code,
+            anime[3]
+        )
+
+        bot.send_photo(
+            chat_id=user_id,
+            photo=anime[2],
+            caption=caption,
+            parse_mode="Markdown",
+            reply_markup=markup
+        )
+
+    else:
+
+        bot.send_message(
+            user_id,
+            "❌ Bunday kodli anime topilmadi. "
+            "Qayta urinib ko'ring."
+        )
+
+
+# ----------------- EPIZODNI YUBORISH -----------------
+
+@bot.callback_query_handler(
+    func=lambda call:
+        call.data.startswith("ep_")
+)
+def send_episode_callback(call):
+
+    try:
+
+        _, anime_code, ep_num = (
+            call.data.split("_")
+        )
+
+        conn = get_db()
+        cursor = conn.cursor()
+
+        cursor.execute(
+            """
+            SELECT video_id
+            FROM episodes
+            WHERE anime_code = %s
+            AND episode_number = %s
+            """,
+            (
+                anime_code,
+                int(ep_num)
+            )
+        )
+
+        row = cursor.fetchone()
+
+        cursor.close()
+        conn.close()
+
+        if row:
+
+            bot.send_video(
+                chat_id=call.message.chat.id,
+                video=row[0],
+                caption=f"{ep_num}-qism"
+            )
+
+            bot.answer_callback_query(
+                call.id
+            )
+
+        else:
+
+            bot.answer_callback_query(
+                call.id,
+                "⚠️ Bu qism videosi hali serverga yuklanmagan!",
+                show_alert=True
+            )
+
+    except Exception as e:
+
+        print(
+            "Episode yuborish xatosi:",
+            e
+        )
+
+        bot.answer_callback_query(
+            call.id,
+            "❌ Videoni yuborishda xatolik yuz berdi!",
+            show_alert=True
+        )
+
+
+# ----------------- FLASK -----------------
+
+@app.route("/")
+def home():
+
+    return "Bot is running!"
+
+
+def run():
+
+    port = int(
+        os.environ.get(
+            "PORT",
+            8080
+        )
+    )
+
+    app.run(
+        host="0.0.0.0",
+        port=port
+    )
+
+
+# ----------------- RUN -----------------
+
+if __name__ == "__main__":
+
+    init_db()
+
+    t = Thread(
+        target=run
+    )
+
+    t.start()
+
+    print(
+        "Bot muvaffaqiyatli ishga tushdi..."
+    )
+
+    bot.infinity_polling()
