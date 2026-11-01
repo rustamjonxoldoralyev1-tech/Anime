@@ -1416,6 +1416,89 @@ def handle_messages(message):
         )
 
 
+# ----------------- ESKI ANIMELARNI AVTOMAT KO'CHIRISH (MIGRATSIYA) -----------------
+
+@bot.message_handler(commands=["migrate"])
+def migrate_old_animes(message):
+    # Faqat admin ishg tushira olishi uchun
+    if message.from_user.id != ADMIN_ID:
+        return
+
+    bot.reply_to(message, "🔄 Eski animelarni yangi botga ko'chirish boshlandi. Bir oz kuting...")
+
+    conn = get_db()
+    cursor = conn.cursor(cursor_factory=RealDictCursor)
+
+    # 1. Bazadagi barcha epizodlarni (videolarni) yuklab olamiz
+    cursor.execute("SELECT id, anime_code, episode_number, video_id FROM episodes")
+    all_episodes = cursor.fetchall()
+    
+    # 2. Bazadagi barcha animelarni yuklab olamiz
+    cursor.execute("SELECT code, photo FROM animes")
+    all_animes = cursor.fetchall()
+
+    success_videos = 0
+    success_photos = 0
+
+    # ---> VIDEOLARNI YANGILASH (FORWARD ORQALI)
+    for ep in all_episodes:
+        try:
+            # Eski video_id orqali videoni vaqtincha adminning o'ziga forward qilamiz
+            # Telegram forward qilingan xabardan yangi bot uchun YANGI video_id beradi
+            forwarded_msg = bot.forward_message(
+                chat_id=ADMIN_ID, 
+                from_chat_id=ADMIN_ID, # Bot o'z-o'ziga forward qilish orqali yangi ID oladi
+                message_id=bot.send_video(ADMIN_ID, ep['video_id']).message_id
+            )
+            
+            # Yangi video_id ni ajratib olamiz
+            new_video_id = forwarded_msg.video.file_id
+            
+            # Bazadagi eski video_id ni yangisiga almashtiramiz
+            cursor.execute(
+                "UPDATE episodes SET video_id = %s WHERE id = %s",
+                (new_video_id, ep['id'])
+            )
+            success_videos += 1
+            
+            # Vaqtinchalik xabarlarni o'chirib tashlaymiz (baza toza turishi uchun)
+            bot.delete_message(ADMIN_ID, forwarded_msg.message_id)
+        except Exception as e:
+            print(f"Epizod {ep['anime_code']}_{ep['episode_number']} ko'chirilmadi: {e}")
+
+    # ---> RASMLARNI YANGILASH
+    for anime in all_animes:
+        try:
+            # Xuddi shu usulda rasmlarni ham yangi bot ID siga o'tkazamiz
+            forwarded_photo = bot.forward_message(
+                chat_id=ADMIN_ID,
+                from_chat_id=ADMIN_ID,
+                message_id=bot.send_photo(ADMIN_ID, anime['photo']).message_id
+            )
+            new_photo_id = forwarded_photo.photo[-1].file_id
+            
+            cursor.execute(
+                "UPDATE animes SET photo = %s WHERE code = %s",
+                (new_photo_id, anime['code'])
+            )
+            success_photos += 1
+            bot.delete_message(ADMIN_ID, forwarded_photo.message_id)
+        except Exception as e:
+            print(f"Anime {anime['code']} rasmi ko'chirilmadi: {e}")
+
+    conn.commit()
+    cursor.close()
+    conn.close()
+
+    bot.send_message(
+        ADMIN_ID, 
+        f"✅ Ko'chirish yakunlandi!\n\n"
+        f"📸 Yangilangan rasmlar: {success_photos} ta\n"
+        f"🎬 Yangilangan videolar: {success_videos} ta\n\n"
+        f"Endi botingizda eski animelar muammosiz ochiladi!"
+    )
+    
+
 # ----------------- EPIZODNI YUBORISH -----------------
 
 @bot.callback_query_handler(
