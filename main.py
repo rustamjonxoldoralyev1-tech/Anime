@@ -324,7 +324,6 @@ def open_anime_after_subscription(
     f"🎞 **Tili:** {anime[4]}\n"
     f"📅 **Yili:** {anime[5]}\n"
     f"🎭 **Janri:** {anime[6]}\n\n"
-    f"🍿 {anime[7]}"
     )
 
     markup = get_episodes_grid(
@@ -336,7 +335,6 @@ def open_anime_after_subscription(
         chat_id=user_id,
         photo=anime[2],
         caption=caption,
-        parse_mode="Markdown",
         reply_markup=markup
     )
 
@@ -500,7 +498,6 @@ def publish_anime_callback(call):
             chat_id=target_channel,
             photo=anime[2],
             caption=channel_caption,
-            parse_mode="Markdown",
             reply_markup=markup
         )
 
@@ -672,7 +669,7 @@ def admin_add_episode(message):
                 f"╭─ 🎞️ Qism  ─ {uploaded_episodes}/{anime[3]}\n"
                 f"├─ 🇺🇿 Til   ─ {anime[5]}\n"
                 f"├─ 🎭 Janr  ─ {anime[7]}\n"
-                f"╰─ 📢 Kanal ─ @an1verseuz"
+                f"╰─ 📢 Kanal ─ @tensei_verse"
             )
 
             bot_info = bot.get_me()
@@ -699,7 +696,6 @@ def admin_add_episode(message):
                 and anime[10] else KANAL_ID_1,
                 photo=anime[2],
                 caption=channel_caption,
-                parse_mode="Markdown",
                 reply_markup=channel_markup
             )
 
@@ -1280,7 +1276,7 @@ def add_anime_to_database(message):
         ]
 
         # Yangi format:
-        # KOD | NOMI | QISMLAR SONI | TILI | YILI | JANRI | KANAL LINKI | TA'RIF
+        # KOD | NOMI | QISMLAR SONI | TILI | YILI | JANRI
 
         if len(parts) < 8:
 
@@ -1288,7 +1284,7 @@ def add_anime_to_database(message):
                 message,
                 "❌ Format xato!\n\n"
                 "To'g'ri format:\n\n"
-                "/addanime_db KOD | NOMI | QISMLAR SONI | TILI | YILI | JANRI | KANAL LINKI | TA'RIF"
+                "/addanime_db KOD | NOMI | QISMLAR SONI | TILI | YILI | JANRI"
             )
 
             return
@@ -1358,8 +1354,7 @@ def add_anime_to_database(message):
                 language,
                 year,
                 genre,
-                views,
-                channel_link
+                views
             )
             VALUES
             (
@@ -1384,8 +1379,7 @@ def add_anime_to_database(message):
                 language,
                 year,
                 genre,
-                views,
-                channel_link
+                views
             )
         )
 
@@ -1403,7 +1397,6 @@ def add_anime_to_database(message):
             f"🎞 Tili: {language}\n"
             f"📅 Yili: {year}\n"
             f"🎭 Janri: {genre}\n"
-            f"📢 Kanal: {channel_link}\n\n"
             f"📝 Ta'rif qabul qilindi."
         )
 
@@ -1497,7 +1490,6 @@ def handle_messages(message):
             chat_id=user_id,
             photo=anime[2],
             caption=caption,
-            parse_mode="Markdown",
             reply_markup=markup
         )
 
