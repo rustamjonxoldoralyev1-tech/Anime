@@ -10,6 +10,7 @@ from threading import Thread
 
 TOKEN = "9129009190:AAGaLxN2NBPeoNoBMqjDY-UARIwv2vU4Ch4"
 KANAL_ID = "@tensei_verse"
+KANAL_2_ID = "@ani_romances"
 ADMIN_ID = 8042634468
 
 bot = telebot.TeleBot(TOKEN)
@@ -120,15 +121,17 @@ def get_uploaded_episodes_count(anime_code):
 # ----------------- MAJBURIY OBUNANI TEKSHIRISH -----------------
 
 def check_sub(user_id):
+    """Foydalanuvchi har ikkala kanalga a'zo ekanligini tekshiradi"""
     try:
-        member = bot.get_chat_member(KANAL_ID, user_id)
+        # 1-kanal tekshiruvi
+        member1 = bot.get_chat_member(KANAL_ID, user_id)
+        sub1 = member1.status in ["member", "creator", "administrator"]
 
-        return member.status in [
-            "member",
-            "creator",
-            "administrator"
-        ]
+        # 2-kanal tekshiruvi
+        member2 = bot.get_chat_member(KANAL_2_ID, user_id)
+        sub2 = member2.status in ["member", "creator", "administrator"]
 
+        return sub1 and sub2
     except Exception as e:
         print("Obunani tekshirish xatosi:", e)
         return False
