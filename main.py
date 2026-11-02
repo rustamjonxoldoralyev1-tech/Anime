@@ -165,11 +165,11 @@ def start_command(message):
         anime_code = start_parameter.replace("anime", "", 1)
 
     start_text = (
-        "Assalomu alaykum bizning botimizga xush kelibsiz!!! "
-        "Tomosha qilish uchun Kodni... yozing... ✔️\n\n"
-        "Murojat va takliflar uchun:\n\n"
-        "@An1verseuzb✔️\n\n"
-        "Botdan to'liq foydalanish uchun homiy kanalga azo bo'ling!! ✔️"
+        "🎬Assalomu alaykum!Botimizga xush kelibsiz!"
+        "🍿Kerakli animeni topish uchun KOD raqamini yuboring✔️\n\n"
+        "💬Murojat va takliflar uchun:\n\n"
+        "👤@Xoldorov_17✔️\n\n"
+        "🛑Botdan to'liq foydalanish uchun homiy kanalga azo bo'ling!! ✔️"
     )
 
     bot.send_message(
@@ -194,14 +194,14 @@ def start_command(message):
 
         markup.add(
             types.InlineKeyboardButton(
-                text="🪐ISEKAI WORLD🪐",
+                text="🪐 ISEKAI WORLD 🪐",
                 url="https://t.me/tensei_verse"
             )
         )
 
         markup.add(
             types.InlineKeyboardButton(
-                text="💘ANIME LOVERS💘",
+                text="💘 ANIME LOVERS 💘",
                 url="https://t.me/ani_romances"
             )
         )
