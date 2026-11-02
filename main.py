@@ -212,59 +212,53 @@ def start_command(message):
 
 # ----------------- MAJBURIY OBUNANI QAYTA TEKSHIRISH -----------------
 
-@bot.callback_query_handler(
-    func=lambda call:
-        call.data == "check_subscription"
-        or call.data.startswith("check_subscription_")
-)
+@bot.callback_query_handler(func=lambda call: call.data == "check_subscription" or call.data.startswith("check_subscription_"))
 def check_callback(call):
-
     user_id = call.from_user.id
-
     anime_code = None
 
     if call.data.startswith("check_subscription_"):
-
-        anime_code = call.data.replace(
-            "check_subscription_",
-            "",
-            1
-        )
+        anime_code = call.data.replace("check_subscription_", "", 1)
 
     if check_sub(user_id):
-
         try:
-            bot.delete_message(
-                call.message.chat.id,
-                call.message.message_id
-            )
+            bot.delete_message(call.message.chat.id, call.message.message_id)
         except Exception:
             pass
 
         if anime_code:
-
-            open_anime_after_subscription(
-                user_id,
-                anime_code
-            )
-
+            open_anime_after_subscription(user_id, anime_code)
         else:
-
             show_search_menu(user_id)
-
-        bot.answer_callback_query(
-            call.id,
-            "✅ Obuna tasdiqlandi!"
-        )
-
+        bot.answer_callback_query(call.id, "✅ Obuna tasdiqlandi!")
     else:
+        try:
+            bot.delete_message(call.message.chat.id, call.message.message_id)
+        except Exception:
+            pass
 
-        bot.answer_callback_query(
-            call.id,
-            "❌ Siz hali kanalga a'zo bo'lmagansiz!",
-            show_alert=True
+        # Obuna bo'lmagan bo'lsa, tugmalarni chiroyli matn bilan qayta chiqaradi
+        markup = types.InlineKeyboardMarkup()
+        username_1_clean = KANAL_ID.replace("@", "")
+        username_2_clean = KANAL_2_ID.replace("@", "")
+
+        markup.add(types.InlineKeyboardButton(text="📢 1-Kanal (An1Verse)", url=f"tg://resolve?domain={username_1_clean}"))
+        markup.add(types.InlineKeyboardButton(text="📢 2-Kanal (TenseiVerse)", url=f"tg://resolve?domain={username_2_clean}"))
+
+        check_data = f"check_subscription_{anime_code}" if anime_code else "check_subscription"
+        markup.add(types.InlineKeyboardButton(text="✅ Tekshirish", callback_data=check_data))
+
+        bot.send_message(
+            user_id,
+            "🛑 **Siz hali barcha kanallarga a'zo bo'lmagansiz!**\n\n"
+            "Botdan to'liq foydalanish uchun iltimos, ikkala kanalga ham obuna bo'ling. ✔️\n\n"
+            "✍️ **Murojaat va takliflar uchun:**\n"
+            "👉 @Xoldorov_17 ✔️",
+            parse_mode="Markdown",
+            reply_markup=markup
         )
-
+        bot.answer_callback_query(call.id, "❌ Ikkala kanalga ham a'zo bo'lishingiz shart!", show_alert=True)
+    
 
 # ----------------- ANIMENI KOD BO'YICHA OCHISH -----------------
 
