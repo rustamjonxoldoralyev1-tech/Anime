@@ -190,6 +190,61 @@ def start_command(message):
         )
 
 
+# ----------------- START KOMANDASI -----------------
+
+@bot.message_handler(commands=["start"])
+def start_command(message):
+    user_id = message.from_user.id
+    start_parameter = ""
+
+    # Matnni to'g'ri ajratib olish (Massiv emas, string ko'rinishida)
+    text_parts = message.text.split()
+    if len(text_parts) > 1:
+        start_parameter = text_parts[1]  # /start dan keyingi qismni (masalan: anime12) oladi
+
+    anime_code = None
+    if start_parameter.startswith("anime"):
+        anime_code = start_parameter.replace("anime", "", 1)
+
+    # Chiroyli va yangilangan start matni
+    start_text = (
+        "👋 **Assalomu alaykum, botimizga xush kelibsiz!**\n\n"
+        "🍿 Bu yerda siz sevimli animelaringizni eng yuqori sifatda tomosha qilishingiz mumkin.\n\n"
+        "🔢 **Anime tomosha qilish uchun:**\n"
+        "Shunchaki animening **kodini** xabar sifatida yuboring! ✔️\n\n"
+        "✍️ **Murojaat va takliflar uchun:**\n"
+        "👉 @Xoldorov_17 ✔️\n\n"
+        "📢 *Botdan to'liq va cheklovlarsiz foydalanish uchun homiy kanallarga a'zo bo'ling!*"
+    )
+
+    bot.send_message(user_id, start_text, parse_mode="Markdown")
+
+    # Majburiy obuna tekshiriladi
+    if check_sub(user_id):
+        if anime_code:
+            open_anime_after_subscription(user_id, anime_code)
+        else:
+            show_search_menu(user_id)
+    else:
+        # Ikkala kanal uchun ham tugmalarni yaratish
+        markup = types.InlineKeyboardMarkup()
+        username_1_clean = KANAL_ID.replace("@", "")
+        username_2_clean = KANAL_2_ID.replace("@", "")
+
+        markup.add(types.InlineKeyboardButton(text="📢 1-Kanal (An1Verse)", url=f"tg://resolve?domain={username_1_clean}"))
+        markup.add(types.InlineKeyboardButton(text="📢 2-Kanal (TenseiVerse)", url=f"tg://resolve?domain={username_2_clean}"))
+
+        check_data = f"check_subscription_{anime_code}" if anime_code else "check_subscription"
+        markup.add(types.InlineKeyboardButton(text="✅ Tekshirish", callback_data=check_data))
+
+        bot.send_message(
+            user_id,
+            "🛑 **Botdan foydalanish uchun quyidagi kanallarga obuna bo'ling:**",
+            parse_mode="Markdown",
+            reply_markup=markup
+        )
+        
+
 # ----------------- MAJBURIY OBUNANI QAYTA TEKSHIRISH -----------------
 
 @bot.callback_query_handler(func=lambda call: call.data == "check_subscription" or call.data.startswith("check_subscription_"))
@@ -213,32 +268,7 @@ def check_callback(call):
         bot.answer_callback_query(call.id, "✅ Obuna tasdiqlandi!")
     else:
         try:
-            bot.delete_message(call.message.chat.id, call.message.message_id)
-        except Exception:
-            pass
-
-        # Obuna bo'lmagan bo'lsa, tugmalarni chiroyli matn bilan qayta chiqaradi
-        markup = types.InlineKeyboardMarkup()
-        username_1_clean = KANAL_ID.replace("@", "")
-        username_2_clean = KANAL_2_ID.replace("@", "")
-
-        markup.add(types.InlineKeyboardButton(text="📢 1-Kanal (An1Verse)", url=f"tg://resolve?domain={username_1_clean}"))
-        markup.add(types.InlineKeyboardButton(text="📢 2-Kanal (TenseiVerse)", url=f"tg://resolve?domain={username_2_clean}"))
-
-        check_data = f"check_subscription_{anime_code}" if anime_code else "check_subscription"
-        markup.add(types.InlineKeyboardButton(text="✅ Tekshirish", callback_data=check_data))
-
-        bot.send_message(
-            user_id,
-            "🛑 **Siz hali barcha kanallarga a'zo bo'lmagansiz!**\n\n"
-            "Botdan to'liq foydalanish uchun iltimos, ikkala kanalga ham obuna bo'ling. ✔️\n\n"
-            "✍️ **Murojaat va takliflar uchun:**\n"
-            "👉 @Xoldorov_17 ✔️",
-            parse_mode="Markdown",
-            reply_markup=markup
-        )
-        bot.answer_callback_query(call.id, "❌ Ikkala kanalga ham a'zo bo'lishingiz shart!", show_alert=True)
-    
+            bot.delete_message(call.message.chat.id, call.message.message
 
 # ----------------- ANIMENI KOD BO'YICHA OCHISH -----------------
 
