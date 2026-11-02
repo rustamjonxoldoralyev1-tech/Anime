@@ -8,7 +8,7 @@ from threading import Thread
 
 # ----------------- SOZLAMALAR -----------------
 
-TOKEN = ""
+TOKEN = "9129009190:AAEukeD-fTFTiKidRdRj61Tpc6W935yQvZg"
 KANAL_ID_1 = "@tensei_verse"
 KANAL_ID_2 = "@ani_romances"
 
