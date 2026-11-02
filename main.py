@@ -3,7 +3,7 @@ import psycopg2
 from psycopg2.extras import RealDictCursor
 import telebot
 from telebot import types
-from flask import flask
+from flask import Flask
 from threading import Thread
 
 # ----------------- SOZLAMALAR -----------------
